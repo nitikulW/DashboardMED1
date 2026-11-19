@@ -618,7 +618,7 @@ tbody tr.danger td { background: color-mix(in srgb, var(--bad-soft) 60%, transpa
       </div>
       <label class="search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        <input id="q" type="search" placeholder="ค้นหาชื่อยา, SKU หรือเลขล็อต" aria-label="ค้นหา" disabled>
+        <input id="q" type="search" placeholder="ค้นหายา, SKU, ล็อต หรือวันที่ เช่น 15/10, 15 ต.ค." aria-label="ค้นหา" disabled>
       </label>
       <button class="icon-btn theme" id="themeBtn" aria-label="สลับโหมดมืด/สว่าง"></button>
     </header>
@@ -908,24 +908,40 @@ const state = { cat: "", pharm: "", q: "", from: "", to: "", trend: "count", log
 const charts = {};
 function destroyCharts() { Object.keys(charts).forEach(k => { charts[k].destroy(); delete charts[k]; }); }
 
-function matchQ(sku, lot) {
-  const q = state.q.trim().toLowerCase();
-  if (!q) return true;
-  return sku.toLowerCase().includes(q) || nameOf(sku).toLowerCase().includes(q) || String(lot || "").toLowerCase().includes(q);
+/* ค้นหาด้วยวันที่: สร้างข้อความวันที่หลายรูปแบบไว้ให้ค้น เช่น
+   2026-10-15 · 15/10/2026 · 15/10/2569 · 15/10/69 · 15 ต.ค. 69 · 15 ตุลาคม 2569 · ต.ค. · ตุลาคม
+   ค้นแบบ "ขึ้นต้นคำ" เพื่อให้ "1/10" ไม่ไปเจอ "11/10" */
+const TH_MON = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+const TH_MON_FULL = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+function dateTokens(iso) {
+  if (!iso) return [];
+  const y = +iso.slice(0, 4), m = +iso.slice(5, 7), d = +iso.slice(8, 10), be = y + 543;
+  const dd = String(d).padStart(2, "0"), mm = String(m).padStart(2, "0");
+  return [iso, iso.slice(0, 7),
+    `${d}/${m}/${y}`, `${d}/${m}/${be}`, `${d}/${m}/${be % 100}`, `${dd}/${mm}/${y}`, `${dd}/${mm}/${be}`, `${dd}/${mm}/${be % 100}`,
+    `${d} ${TH_MON[m - 1]} ${be}`, `${d} ${TH_MON[m - 1]} ${be % 100}`, `${d} ${TH_MON_FULL[m - 1]} ${be}`];
 }
-const fLots = () => D.lots.filter(l => (!state.cat || catOf(l.sku) === state.cat) && matchQ(l.sku, l.lot));
+// ข้อความวันที่ของแต่ละแถว: บันทึกการจ่าย = วันที่จ่าย, ล็อต = วันหมดอายุ + วันรับเข้า (คั่นแต่ละรูปแบบด้วย 2 ช่องว่าง)
+const dateHay = x => x._dates ?? (x._dates = " " + [x.day, x.expiry, x.received_date].flatMap(dateTokens).join("  ").toLowerCase());
+function matchQ(sku, lot, row) {
+  const q = state.q.trim().toLowerCase().replace(/s+/g, " ");
+  if (!q) return true;
+  if (sku.toLowerCase().includes(q) || nameOf(sku).toLowerCase().includes(q) || String(lot || "").toLowerCase().includes(q)) return true;
+  return !!row && dateHay(row).includes(" " + q);
+}
+const fLots = () => D.lots.filter(l => (!state.cat || catOf(l.sku) === state.cat) && matchQ(l.sku, l.lot, l));
 // ช่วงเวลาที่เลือก (ใช้กับทุกอย่างที่มาจากบันทึกการจ่าย)
 // ช่วงเต็ม = แสดงทุกแถว (รวมแถวที่วันที่ผิดปกติ ซึ่งถูกตัดออกจากการคำนวณอยู่แล้ว)
 const inRange = d => isFullRange() || !d.day || (d.day >= state.from && d.day <= state.to);
 const rangeDays = () => Math.max(1, dayNum(state.to) - dayNum(state.from) + 1);
 const isFullRange = () => state.from === D.from && state.to === D.to;
 const fDisp = (incExcluded = false) => D.disp.filter(d => (incExcluded || !d.excluded) && inRange(d) &&
-  (!state.cat || catOf(d.sku) === state.cat) && (!state.pharm || d.pharmacist_code === state.pharm) && matchQ(d.sku, d.lot));
+  (!state.cat || catOf(d.sku) === state.cat) && (!state.pharm || d.pharmacist_code === state.pharm) && matchQ(d.sku, d.lot, d));
 
 // รวมรายยา (SKU): คงเหลือที่ใช้ได้ = ล็อตที่ยังไม่หมดอายุ (หรือไม่ทราบวันหมดอายุ)
 function skuSummary() {
   const lots = fLots().filter(l => !l.excluded);
-  const disp = D.disp.filter(d => !d.excluded && inRange(d) && (!state.cat || catOf(d.sku) === state.cat) && matchQ(d.sku, d.lot));
+  const disp = D.disp.filter(d => !d.excluded && inRange(d) && (!state.cat || catOf(d.sku) === state.cat) && matchQ(d.sku, d.lot, d));
   const m = new Map();
   const get = sku => m.get(sku) || (m.set(sku, { sku, usable: 0, expired: 0, held: 0, unknownExp: 0, value: 0, used: 0, lots: 0 }), m.get(sku));
   lots.forEach(l => {
@@ -1262,7 +1278,7 @@ function renderTrend() {
 
 function renderPharm() {
   // ไม่สนตัวกรองเภสัชกร เพื่อให้เห็นเทียบกันทุกคน
-  const disp = D.disp.filter(d => !d.excluded && inRange(d) && (!state.cat || catOf(d.sku) === state.cat) && matchQ(d.sku, d.lot));
+  const disp = D.disp.filter(d => !d.excluded && inRange(d) && (!state.cat || catOf(d.sku) === state.cat) && matchQ(d.sku, d.lot, d));
   const pal = isDark() ? ["#2dd4bf", "#7dd3fc", "#fcd34d", "#c4b5fd", "#f9a8d4"] : ["#0d9488", "#0ea5e9", "#f59e0b", "#8b5cf6", "#ec4899"];
   const vals = D.pharms.map(p => disp.filter(d => d.pharmacist_code === p).length);
   const total = vals.reduce((s, v) => s + v, 0);
