@@ -464,7 +464,7 @@ tbody tr.active td { background: var(--primary-soft); }
    ส่วนเพิ่มของ dashboard02 (คลังยา + การจ่ายยา)
    ===================================================================== */
 :root {
-  --ok: #059669; --ok-soft: #d1fae5;
+  --ok: #047857; --ok-soft: #d1fae5;
   --warn: #b45309; --warn-soft: #fef3c7;
   --bad: #b91c1c; --bad-soft: #fee2e2;
   --info: #0369a1; --info-soft: #e0f2fe;
@@ -524,6 +524,16 @@ tbody tr.danger td { background: color-mix(in srgb, var(--bad-soft) 60%, transpa
 .dq-item { display: grid; grid-template-columns: auto 92px 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; font-size: 14px; }
 .dq-item code { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; color: var(--text-2); }
 .dq-item .src { font-size: 12px; color: var(--text-2); }
+.range {
+  display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 4px 4px 4px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow);
+}
+.range.on { border-color: var(--primary); background: var(--primary-soft); }
+.range > svg { width: 17px; height: 17px; color: var(--primary-text); }
+.range input { border: 1px solid var(--border); border-radius: 9px; padding: 5px 8px; background: var(--surface); font-size: 14px; }
+.range input:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
+.range > span { color: var(--text-2); font-size: 13px; }
+.range .seg { margin-left: 0; }
 .alert-strip {
   display: flex; gap: 12px; align-items: flex-start; padding: 14px 18px; border-radius: 16px; margin-bottom: 16px;
   background: var(--bad-soft); color: var(--bad); border: 1px solid color-mix(in srgb, var(--bad) 30%, transparent);
@@ -581,6 +591,10 @@ tbody tr.danger td { background: color-mix(in srgb, var(--bad-soft) 60%, transpa
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3 3 7v5c0 5 3.8 8.5 9 9.5 5.2-1 9-4.5 9-9.5V7Z"/><path d="M12 8v4M12 16h.01"/></svg>
       <span class="lbl">คุณภาพข้อมูล</span>
       <span class="badge" id="dqBadge">–</span>
+    </a>
+    <a class="nav-link" href="analysis.html" data-tip="วิเคราะห์ข้อมูล">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>
+      <span class="lbl">วิเคราะห์ข้อมูล</span>
     </a>
     <a class="nav-link" href="../" data-tip="บัญชียา (กิจกรรมก่อนหน้า)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
@@ -890,7 +904,7 @@ const drugLabel = sku => {
 /* =====================================================================
    4) สถานะตัวกรอง และการคำนวณตามตัวกรอง
    ===================================================================== */
-const state = { cat: "", pharm: "", q: "", trend: "count", logPage: 1, logSize: 15, logShow: "all", lotShow: "risk" };
+const state = { cat: "", pharm: "", q: "", from: "", to: "", trend: "count", logPage: 1, logSize: 15, logShow: "all", lotShow: "risk" };
 const charts = {};
 function destroyCharts() { Object.keys(charts).forEach(k => { charts[k].destroy(); delete charts[k]; }); }
 
@@ -900,13 +914,18 @@ function matchQ(sku, lot) {
   return sku.toLowerCase().includes(q) || nameOf(sku).toLowerCase().includes(q) || String(lot || "").toLowerCase().includes(q);
 }
 const fLots = () => D.lots.filter(l => (!state.cat || catOf(l.sku) === state.cat) && matchQ(l.sku, l.lot));
-const fDisp = (incExcluded = false) => D.disp.filter(d => (incExcluded || !d.excluded) &&
+// ช่วงเวลาที่เลือก (ใช้กับทุกอย่างที่มาจากบันทึกการจ่าย)
+// ช่วงเต็ม = แสดงทุกแถว (รวมแถวที่วันที่ผิดปกติ ซึ่งถูกตัดออกจากการคำนวณอยู่แล้ว)
+const inRange = d => isFullRange() || !d.day || (d.day >= state.from && d.day <= state.to);
+const rangeDays = () => Math.max(1, dayNum(state.to) - dayNum(state.from) + 1);
+const isFullRange = () => state.from === D.from && state.to === D.to;
+const fDisp = (incExcluded = false) => D.disp.filter(d => (incExcluded || !d.excluded) && inRange(d) &&
   (!state.cat || catOf(d.sku) === state.cat) && (!state.pharm || d.pharmacist_code === state.pharm) && matchQ(d.sku, d.lot));
 
 // รวมรายยา (SKU): คงเหลือที่ใช้ได้ = ล็อตที่ยังไม่หมดอายุ (หรือไม่ทราบวันหมดอายุ)
 function skuSummary() {
   const lots = fLots().filter(l => !l.excluded);
-  const disp = D.disp.filter(d => !d.excluded && (!state.cat || catOf(d.sku) === state.cat) && matchQ(d.sku, d.lot));
+  const disp = D.disp.filter(d => !d.excluded && inRange(d) && (!state.cat || catOf(d.sku) === state.cat) && matchQ(d.sku, d.lot));
   const m = new Map();
   const get = sku => m.get(sku) || (m.set(sku, { sku, usable: 0, expired: 0, held: 0, unknownExp: 0, value: 0, used: 0, lots: 0 }), m.get(sku));
   lots.forEach(l => {
@@ -924,7 +943,7 @@ function skuSummary() {
     const drug = D.drug.get(s.sku);
     s.reorder = drug ? Number(drug.reorder_level) : null;
     s.unit = drug?.unit;
-    s.perDay = s.used / D.days;
+    s.perDay = s.used / rangeDays();
     s.cover = s.perDay > 0 ? s.usable / s.perDay : Infinity;
     if (s.usable <= 0) s.status = ["bad", "หมดสต็อก", 0];
     else if (s.reorder != null && s.usable < s.reorder) s.status = ["bad", "ต่ำกว่าจุดสั่งซื้อ", 1];
@@ -967,6 +986,15 @@ function buildPage() {
     <div class="filters" role="group" aria-label="ตัวกรอง">
       <div class="select"><select id="fCat" aria-label="หมวดยา">${opt("", "ทุกหมวดยา")}${D.cats.map(c => opt(c, c)).join("")}</select></div>
       <div class="select"><select id="fPharm" aria-label="เภสัชกร">${opt("", "เภสัชกรทุกคน")}${D.pharms.map(p => opt(p, p)).join("")}</select></div>
+      <div class="range" role="group" aria-label="ช่วงเวลาการจ่ายยา">
+        ${ICON.cal}
+        <input type="date" id="dFrom" min="${D.from}" max="${D.to}" aria-label="ตั้งแต่วันที่">
+        <span>ถึง</span>
+        <input type="date" id="dTo" min="${D.from}" max="${D.to}" aria-label="ถึงวันที่">
+        <div class="seg" role="group" aria-label="ช่วงลัด">
+          <button data-range="7" aria-pressed="false">7 วัน</button><button data-range="14" aria-pressed="false">14 วัน</button><button data-range="all" aria-pressed="true">ทั้งหมด</button>
+        </div>
+      </div>
       <button class="btn" id="clearBtn">${ICON.x}ล้างตัวกรอง</button>
       <div class="chips" id="chips"></div>
     </div>
@@ -1005,7 +1033,7 @@ function buildPage() {
 
     <section id="reorder" class="card rise" style="--d:460ms;margin-bottom:16px">
       <div class="table-tools">
-        ${head(ICON.cart, "สถานะคงคลังและจุดสั่งซื้อ", `คงเหลือใช้ได้ = ไม่นับล็อตที่หมดอายุ · วันคงเหลือ = คงเหลือ ÷ ใช้เฉลี่ยต่อวัน (${D.days} วัน)`)}
+        ${head(ICON.cart, "สถานะคงคลังและจุดสั่งซื้อ", `คงเหลือใช้ได้ = ไม่นับล็อตที่หมดอายุ · วันคงเหลือ = คงเหลือ ÷ ใช้เฉลี่ยต่อวัน ในช่วงที่เลือก <b id="reDays"></b>`)}
         <span class="count num" id="reCount"></span>
       </div>
       <div class="table-scroll tall">
@@ -1064,7 +1092,16 @@ function buildPage() {
 
   $("fCat").onchange = e => { state.cat = e.target.value; render(); };
   $("fPharm").onchange = e => { state.pharm = e.target.value; render(); };
-  $("clearBtn").onclick = () => { Object.assign(state, { cat: "", pharm: "", q: "" }); $("q").value = ""; render(); };
+  $("clearBtn").onclick = () => { Object.assign(state, { cat: "", pharm: "", q: "", from: D.from, to: D.to }); $("q").value = ""; render(); };
+  // ช่วงเวลา: เลือกเอง หรือกดปุ่มลัด (นับย้อนจากวันสุดท้ายของข้อมูล)
+  const setRange = (a, b) => {
+    if (a > b) [a, b] = [b, a];
+    state.from = a < D.from ? D.from : a; state.to = b > D.to ? D.to : b; render();
+  };
+  $("dFrom").onchange = e => e.target.value && setRange(e.target.value, state.to);
+  $("dTo").onchange = e => e.target.value && setRange(state.from, e.target.value);
+  document.querySelectorAll("[data-range]").forEach(b => b.onclick = () =>
+    b.dataset.range === "all" ? setRange(D.from, D.to) : setRange(isoOfDay(dayNum(D.to) - Number(b.dataset.range) + 1), D.to));
   const q = $("q");
   q.disabled = false;
   q.oninput = () => { state.q = q.value; render(); };
@@ -1078,6 +1115,7 @@ function buildPage() {
   seg("log", "logShow", () => { state.logPage = 1; renderLog(); });
   $("pgPrev").onclick = () => { state.logPage--; renderLog(); };
   $("pgNext").onclick = () => { state.logPage++; renderLog(); };
+  state.from = D.from; state.to = D.to;
   renderQuality();
   render();
 }
@@ -1097,6 +1135,12 @@ function kpiCard(n, icon, label, id, delay) {
 function render() {
   $("fCat").value = state.cat; $("fCat").classList.toggle("on", !!state.cat);
   $("fPharm").value = state.pharm; $("fPharm").classList.toggle("on", !!state.pharm);
+  $("dFrom").value = state.from; $("dTo").value = state.to;
+  $("dFrom").max = state.to; $("dTo").min = state.from;
+  document.querySelectorAll("[data-range]").forEach(b => b.setAttribute("aria-pressed",
+    b.dataset.range === "all" ? isFullRange() : state.to === D.to && rangeDays() === Number(b.dataset.range)));
+  document.querySelector(".range").classList.toggle("on", !isFullRange());
+  $("reDays").textContent = `(${rangeDays()} วัน)`;
   state.logPage = 1;
   const sum = skuSummary();
   renderChips();
@@ -1115,11 +1159,13 @@ function renderChips() {
   const c = [];
   if (state.cat) c.push(["cat", "หมวด", state.cat]);
   if (state.pharm) c.push(["pharm", "เภสัชกร", state.pharm]);
+  if (!isFullRange()) c.push(["range", "ช่วงเวลา", `${thDate(state.from)} – ${thDate(state.to)} (${rangeDays()} วัน)`]);
   if (state.q.trim()) c.push(["q", "ค้นหา", `“${state.q.trim()}”`]);
   $("clearBtn").disabled = !c.length;
   $("chips").innerHTML = c.map(([k, l, v]) => `<button class="chip" data-k="${k}"><small>${l}:</small> ${esc(v)}<span class="x">${ICON.x}</span></button>`).join("");
   $("chips").querySelectorAll(".chip").forEach(b => b.onclick = () => {
-    state[b.dataset.k] = ""; if (b.dataset.k === "q") $("q").value = ""; render();
+    if (b.dataset.k === "range") { state.from = D.from; state.to = D.to; } else state[b.dataset.k] = "";
+    if (b.dataset.k === "q") $("q").value = ""; render();
   });
 }
 
@@ -1155,8 +1201,8 @@ function renderKpis(sum) {
   const disp = fDisp();
   const pts = new Set(disp.map(d => d.patient_code)).size;
   $("kDisp").innerHTML = `${fmt(disp.length)}<small>ครั้ง</small>`;
-  $("kDispFoot").textContent = `${fmt(pts)} ผู้ป่วย · เฉลี่ย ${fmt(disp.length / D.days, 1)} ครั้ง/วัน`;
-  const all = D.disp.filter(d => !d.excluded).length;
+  $("kDispFoot").textContent = `${fmt(pts)} ผู้ป่วย · เฉลี่ย ${fmt(disp.length / rangeDays(), 1)} ครั้ง/วัน`;
+  const all = D.disp.filter(d => !d.excluded && inRange(d)).length;
   $("kDispBar").innerHTML = `<span style="width:${all ? disp.length / all * 100 : 0}%;background:var(--k2i)"></span>`;
 }
 
@@ -1189,7 +1235,7 @@ function upsert(key, canvas, cfg) {
 function renderTrend() {
   const disp = fDisp();
   const days = [];
-  for (let n = dayNum(D.from); n <= dayNum(D.to); n++) days.push(isoOfDay(n));
+  for (let n = dayNum(state.from); n <= dayNum(state.to); n++) days.push(isoOfDay(n));
   const by = new Map(days.map(d => [d, new Set()]));
   const cnt = new Map(days.map(d => [d, 0]));
   disp.forEach(d => { if (cnt.has(d.day)) { cnt.set(d.day, cnt.get(d.day) + 1); by.get(d.day).add(d.patient_code); } });
@@ -1216,7 +1262,7 @@ function renderTrend() {
 
 function renderPharm() {
   // ไม่สนตัวกรองเภสัชกร เพื่อให้เห็นเทียบกันทุกคน
-  const disp = D.disp.filter(d => !d.excluded && (!state.cat || catOf(d.sku) === state.cat) && matchQ(d.sku, d.lot));
+  const disp = D.disp.filter(d => !d.excluded && inRange(d) && (!state.cat || catOf(d.sku) === state.cat) && matchQ(d.sku, d.lot));
   const pal = isDark() ? ["#2dd4bf", "#7dd3fc", "#fcd34d", "#c4b5fd", "#f9a8d4"] : ["#0d9488", "#0ea5e9", "#f59e0b", "#8b5cf6", "#ec4899"];
   const vals = D.pharms.map(p => disp.filter(d => d.pharmacist_code === p).length);
   const total = vals.reduce((s, v) => s + v, 0);

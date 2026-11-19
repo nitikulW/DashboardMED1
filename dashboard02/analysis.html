@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>วิเคราะห์ข้อมูลคลังยา</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #eef4f3; --surface: #ffffff; --surface-2: #f4f8f7; --border: #e3ecea;
+  --text: #102624; --text-2: #5d706d; --primary: #0d9488; --primary-soft: #d5f5ef; --primary-text: #0f766e;
+  --hero-1: #0d6b62; --hero-2: #0a6f65;
+  --ok: #047857; --ok-soft: #d1fae5; --warn: #b45309; --warn-soft: #fef3c7; --bad: #b91c1c; --bad-soft: #fee2e2;
+  --shadow: 0 1px 2px rgba(15,60,55,.05), 0 8px 24px -8px rgba(15,60,55,.12);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #08100f; --surface: #111c1b; --surface-2: #162423; --border: #213432;
+  --text: #e7f2f0; --text-2: #93aaa6; --primary: #2dd4bf; --primary-soft: #123f3b; --primary-text: #5eead4;
+  --hero-1: #063b37; --hero-2: #0b5e57;
+  --ok: #6ee7b7; --ok-soft: #0c3326; --warn: #fcd34d; --warn-soft: #3d2c08; --bad: #fca5a5; --bad-soft: #3b1414;
+  --shadow: 0 1px 2px rgba(0,0,0,.35);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: "Sarabun", system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 16px; line-height: 1.7; }
+a { color: var(--primary-text); }
+.num { font-variant-numeric: tabular-nums; }
+
+.topbar {
+  position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+.topbar-in { max-width: 1040px; margin: 0 auto; padding: 10px 20px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.topbar b { margin-right: auto; font-size: 15px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); text-decoration: none; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.btn:hover { border-color: var(--primary); color: var(--primary-text); }
+.btn svg { width: 16px; height: 16px; }
+
+.wrap { max-width: 1040px; margin: 0 auto; padding: 24px 20px 64px; }
+.hero { border-radius: 22px; padding: 28px 30px; color: #fff; background: linear-gradient(120deg, var(--hero-1), var(--hero-2)); box-shadow: 0 18px 40px -22px var(--hero-1); }
+.hero h1 { margin: 0 0 6px; font-size: 28px; line-height: 1.3; }
+.hero p { margin: 0; max-width: 70ch; }
+.toc { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.toc a { color: #fff; text-decoration: none; font-size: 14px; padding: 4px 12px; border-radius: 999px; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.25); }
+
+section { margin-top: 28px; scroll-margin-top: 70px; }
+h2 { font-size: 22px; margin: 0 0 12px; display: flex; align-items: center; gap: 10px; }
+h2 .n { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: var(--primary-soft); color: var(--primary-text); font-size: 16px; flex: none; }
+h3 { font-size: 17px; margin: 18px 0 6px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 20px 22px; box-shadow: var(--shadow); }
+.card + .card { margin-top: 12px; }
+.muted { color: var(--text-2); }
+ul, ol { padding-left: 22px; margin: 6px 0; }
+li { margin: 3px 0; }
+
+table { width: 100%; border-collapse: collapse; font-size: 15px; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { color: var(--text-2); font-weight: 600; font-size: 14px; background: var(--surface-2); }
+td.r, th.r { text-align: right; }
+.scroll { overflow-x: auto; }
+code { font-family: ui-monospace, Consolas, monospace; font-size: .88em; background: var(--surface-2); padding: 1px 6px; border-radius: 5px; }
+
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.stat { background: var(--surface-2); border-radius: 14px; padding: 12px 14px; }
+.stat b { display: block; font-size: 24px; line-height: 1.3; }
+.stat span { font-size: 13px; color: var(--text-2); }
+
+.tag { display: inline-flex; align-items: center; gap: 5px; padding: 1px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.tag.ok { background: var(--ok-soft); color: var(--ok); }
+.tag.warn { background: var(--warn-soft); color: var(--warn); }
+.tag.bad { background: var(--bad-soft); color: var(--bad); }
+
+.insight { border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent); padding: 12px 16px; background: var(--primary-soft); border-radius: 14px; margin: 12px 0; }
+.insight.warn { border-color: color-mix(in srgb, var(--warn) 35%, transparent); background: var(--warn-soft); }
+.insight.bad { border-color: color-mix(in srgb, var(--bad) 35%, transparent); background: var(--bad-soft); }
+.insight b:first-child { display: block; }
+
+.options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.opt { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 18px; box-shadow: var(--shadow); display: flex; flex-direction: column; }
+.opt.pick { border: 2px solid var(--primary); }
+.opt h3 { margin: 0 0 4px; }
+.opt .who { font-size: 14px; color: var(--text-2); margin-bottom: 10px; }
+.wire { background: var(--surface-2); border-radius: 12px; padding: 10px; margin-bottom: 12px; display: grid; gap: 5px; }
+.wire div { background: var(--border); border-radius: 5px; height: 12px; }
+.wire .row { display: grid; gap: 5px; background: none; height: auto; }
+.wire .hl { background: var(--primary); opacity: .55; }
+.wire .rd { background: var(--bad); opacity: .45; }
+.pc { font-size: 14px; }
+.pc b { display: block; margin-top: 8px; }
+.pick-tag { align-self: flex-start; margin-bottom: 8px; }
+
+@media (max-width: 820px) {
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .options { grid-template-columns: 1fr; }
+  .hero { padding: 22px; }
+  .hero h1 { font-size: 23px; }
+}
+@media print {
+  .topbar, .toc { display: none; }
+  body { background: #fff; }
+  .card, .opt { box-shadow: none; break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="topbar-in">
+  <b>วิเคราะห์ข้อมูลและทางเลือก dashboard</b>
+  <a class="btn" href="./"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>dashboard02</a>
+  <a class="btn" href="../">dashboard01</a>
+  <button class="btn" id="themeBtn" type="button">โหมดมืด/สว่าง</button>
+</div></div>
+
+<main class="wrap">
+  <div class="hero">
+    <h1>วิเคราะห์ข้อมูลคลังยาและการจ่ายยา<br>พร้อมทางเลือกการออกแบบ dashboard</h1>
+    <p>กิจกรรม #4 · ข้อมูล ณ 2 พ.ย. 2569 · การจ่ายยา 3 ต.ค. – 1 พ.ย. 2569 (30 วัน) · ใช้ข้อมูลที่ทำความสะอาดแล้ว ได้แก่ <code style="background:rgba(255,255,255,.18);color:#fff">stock.json</code>, <code style="background:rgba(255,255,255,.18);color:#fff">dispense-log.json</code> และ <code style="background:rgba(255,255,255,.18);color:#fff">drugs_update.json</code></p>
+    <nav class="toc">
+      <a href="#data">1. ข้อมูล</a><a href="#quality">2. คุณภาพข้อมูล</a><a href="#insight">3. ผลวิเคราะห์</a>
+      <a href="#options">4. ทางเลือก dashboard</a><a href="#pick">5. แบบที่เลือก</a><a href="#check">6. ตรวจกับโจทย์</a>
+    </nav>
+  </div>
+
+  <!-- 1 -->
+  <section id="data">
+    <h2><span class="n">1</span>ข้อมูลที่ใช้</h2>
+    <div class="card">
+      <div class="stats">
+        <div class="stat"><b class="num">47</b><span>ล็อตในคลัง (30 SKU)</span></div>
+        <div class="stat"><b class="num">฿11,456</b><span>มูลค่าคงคลังทั้งหมด</span></div>
+        <div class="stat"><b class="num">146</b><span>ครั้งที่จ่ายยา (ไม่รวมยกเลิก)</span></div>
+        <div class="stat"><b class="num">55</b><span>ผู้ป่วย · 3 เภสัชกร</span></div>
+      </div>
+      <div class="scroll" style="margin-top:14px">
+        <table>
+          <thead><tr><th>ไฟล์</th><th class="r">แถว</th><th>หน้าที่</th><th>ฟิลด์สำคัญ</th></tr></thead>
+          <tbody>
+            <tr><td><code>stock.json</code></td><td class="r num">47</td><td>ยอดคงเหลือรายล็อต ณ วันที่ข้อมูล</td><td><code>sku</code> <code>lot</code> <code>expiry</code> <code>qty_on_hand</code> <code>unit_cost</code> <code>status</code> (active / quarantine / written_off)</td></tr>
+            <tr><td><code>dispense-log.json</code></td><td class="r num">149</td><td>ประวัติการจ่ายยา 30 วัน</td><td><code>datetime</code> <code>sku</code> <code>lot</code> <code>qty</code> <code>patient_code</code> <code>pharmacist_code</code> <code>type</code> (dispense / void) <code>incident_ref</code></td></tr>
+            <tr><td><code>drugs_update.json</code></td><td class="r num">350</td><td>บัญชียาอ้างอิง v2.0 (ชื่อ ความแรง หมวด ATC)</td><td><code>generic_name</code> <code>category</code> <code>unit</code> <code>reorder_level</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted" style="margin:12px 0 0">ไฟล์ทั้งสามเชื่อมกันด้วย <code>sku</code> (และ <code>sku + lot</code> ระหว่างคลังกับบันทึกการจ่าย) dashboard อ่านไฟล์ด้วย <code>fetch()</code> ตอนเปิดหน้า ไม่ได้ฝังข้อมูลไว้ใน HTML ถ้าเปลี่ยนไฟล์ JSON หน้าเว็บก็อัปเดตตามโดยไม่ต้องแก้โค้ด</p>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section id="quality">
+    <h2><span class="n">2</span>คุณภาพข้อมูล</h2>
+    <div class="card">
+      <h3 style="margin-top:0">สิ่งที่ได้รับการแก้ไขแล้วในชุดที่ทำความสะอาด</h3>
+      <ul>
+        <li>วันที่รูปแบบ DD/MM/YYYY (S006, D0057) และราคาที่เป็นข้อความ (S026) → แปลงเป็นรูปแบบมาตรฐาน</li>
+        <li>ล็อตซ้ำ (S039) และ VITE400 ที่ไม่อยู่ในบัญชียาเดิม (S040, D0072) → ลบออก</li>
+        <li>รายการจ่าย 0 หน่วยและติดลบ (D0030, D0093) → ระบุ <code>type: "void"</code></li>
+        <li>รหัสจ่ายซ้ำ D0086 → แยกเป็น D0150 พร้อม <code>legacy_id</code></li>
+        <li>ล็อตหมดอายุ → <code>written_off</code> หรือ <code>quarantine</code> ส่วนการจ่ายยาหมดอายุ 2 ครั้งมี <code>incident_ref</code> (INC-001, INC-002)</li>
+      </ul>
+      <h3>สิ่งที่ยังเหลือ (dashboard ตรวจพบและแสดงไว้ในส่วน "คุณภาพข้อมูล")</h3>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>รหัส</th><th>ปัญหา</th><th>dashboard จัดการอย่างไร</th></tr></thead>
+          <tbody>
+            <tr><td><code>D0149</code></td><td>วันที่ 5 พ.ย. 69 เลยวันที่ข้อมูล (2 พ.ย.) และนอกช่วงรายงาน</td><td><span class="tag bad">ไม่นับ</span></td></tr>
+            <tr><td><code>D0045</code></td><td>จ่าย Amlodipine แต่บันทึกล็อต LS2505 ซึ่งเป็นล็อตของ Losartan</td><td><span class="tag warn">ทำเครื่องหมาย</span> ควรตรวจว่าหยิบยาผิดหรือบันทึกผิด</td></tr>
+            <tr><td><code>D0120</code></td><td>Loratadine 2.5 เม็ด (ไม่ใช่จำนวนเต็ม)</td><td><span class="tag warn">ทำเครื่องหมาย</span> นับตามจริง</td></tr>
+            <tr><td><code>S007</code></td><td>Ibuprofen รับเข้า 14 ก.ย. 69 หลังวันหมดอายุ 31 มี.ค. 69</td><td><span class="tag warn">ทำเครื่องหมาย</span> ล็อตนี้กักกันอยู่แล้ว</td></tr>
+            <tr><td><code>S022</code></td><td>Simvastatin ไม่มีวันหมดอายุ</td><td><span class="tag warn">ทำเครื่องหมาย</span> ล็อตนี้กักกันอยู่แล้ว</td></tr>
+            <tr><td><code>S027</code></td><td>Cetirizine ยอด −20 ถูกแก้เป็น 20 (สันนิษฐานว่าพิมพ์เครื่องหมายผิด)</td><td class="muted">ควรยืนยันกับการนับสต็อกจริง</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section id="insight">
+    <h2><span class="n">3</span>ผลการวิเคราะห์</h2>
+    <div class="card">
+      <h3 style="margin-top:0">3.1 การสั่งซื้อ: จุดสั่งซื้อแบบคงที่ไม่สอดคล้องกับการใช้จริง</h3>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>ยา</th><th class="r">คงเหลือ</th><th class="r">จุดสั่งซื้อ</th><th class="r">ใช้/วัน</th><th class="r">พอใช้</th><th>ข้อสังเกต</th></tr></thead>
+          <tbody>
+            <tr><td>Enalapril 5 mg</td><td class="r num">240</td><td class="r num">200</td><td class="r num">19.0</td><td class="r num"><span class="tag bad">13 วัน</span></td><td>สูงกว่าจุดสั่งซื้อ ระบบแบบเดิมจึงไม่เตือน แต่ใกล้หมดจริงที่สุด</td></tr>
+            <tr><td>Omeprazole 20 mg</td><td class="r num">390</td><td class="r num">300</td><td class="r num">26.0</td><td class="r num"><span class="tag warn">15 วัน</span></td><td>ยาที่จ่ายมากที่สุด (780 แคปซูล/30 วัน)</td></tr>
+            <tr><td>Azithromycin 250 mg</td><td class="r num">48</td><td class="r num">60</td><td class="r num">0.2</td><td class="r num">240 วัน</td><td>ต่ำกว่าจุดสั่งซื้อ แต่ใช้น้อย และล็อตหมดอายุ 15 ม.ค. 70 ถ้าสั่งเพิ่มจะยิ่งเสี่ยงหมดอายุ</td></tr>
+            <tr><td>Diclofenac sodium 25 mg</td><td class="r num">150</td><td class="r num">200</td><td class="r num">0.3</td><td class="r num">450 วัน</td><td>ต่ำกว่าจุดสั่งซื้อ แต่ของที่มีพอใช้มากกว่า 1 ปี</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="insight warn"><b>ข้อเสนอ</b>ใช้ "วันคงเหลือ = คงเหลือ ÷ ใช้เฉลี่ยต่อวัน" คู่กับ <code>reorder_level</code> เมื่อดูแค่จุดสั่งซื้อ ร้านจะสั่งยาที่ไม่จำเป็น 2 รายการ และพลาด Enalapril ที่ใกล้หมดจริง dashboard จึงแสดงทั้งสองค่า และคำนวณอัตราใช้ตามช่วงเวลาที่เลือกได้</div>
+
+      <h3>3.2 วันหมดอายุ</h3>
+      <ul>
+        <li>บนชั้นไม่มียาหมดอายุแล้ว: ล็อตหมดอายุถูกตัดจำหน่ายหรือกักกันทั้งหมด (กักกัน 2 ล็อต มูลค่า ฿297)</li>
+        <li>มี 6 ล็อตที่จะหมดอายุภายใน 90 วัน เมื่อเทียบกับอัตราการใช้:
+          <ul>
+            <li><b>Azithromycin 250 mg</b>: 48 เม็ด ใช้ 0.2/วัน คาดว่าจะเหลือหมดอายุประมาณ 33 เม็ด (มูลค่าประมาณ ฿220)</li>
+            <li><b>Ascorbic acid (Vitamin C) 500 mg</b>: 150 เม็ด ใช้ 1.3/วัน คาดว่าเหลือประมาณ 40 เม็ด</li>
+            <li><b>Dextromethorphan syrup</b>: 9 ขวด ใช้ 0.1/วัน คาดว่าเหลือ 2–3 ขวด</li>
+            <li>Omeprazole (หมด 15 ธ.ค.) และ Amlodipine ใช้หมดทันแน่นอน <b>ถ้าจ่ายตามหลัก FEFO</b> (ล็อตหมดก่อนจ่ายก่อน)</li>
+          </ul>
+        </li>
+      </ul>
+      <div class="insight bad"><b>ความปลอดภัยผู้ป่วย</b>มีการจ่ายยาหลังวันหมดอายุ 2 ครั้ง (D0014 Chloramphenicol eye drops, D0106 Amoxicillin dry syrup) ถึงจะบันทึกอุบัติการณ์แล้ว ระบบก็ควรมีการเตือนตอนจ่ายยา ไม่ใช่มาตรวจพบย้อนหลัง</div>
+
+      <h3>3.3 รูปแบบการจ่ายยา</h3>
+      <ul>
+        <li>เฉลี่ย 4.9 ครั้ง/วัน · 14 วันหลัง (5.4 ครั้ง/วัน) สูงกว่า 16 วันแรก (4.4 ครั้ง/วัน) ประมาณ 20%</li>
+        <li>วันเสาร์จ่ายมากที่สุด (31 ครั้ง) วันอาทิตย์น้อยที่สุด (15 ครั้ง) · ช่วง 13:00–13:59 น. มากที่สุด</li>
+        <li>หมวดที่จ่ายบ่อย: แก้ปวด/ต้านการอักเสบ 27 · แก้แพ้ 24 · ยาปฏิชีวนะ 21 · หัวใจ/ความดัน 18 ครั้ง</li>
+        <li>ยาโรคเรื้อรัง (Omeprazole, Metformin, Enalapril, Amlodipine, Simvastatin) จ่ายครั้งละมาก จึงกินสต็อกเร็วที่สุด</li>
+        <li>เภสัชกร RX-02 จ่ายมากที่สุด (56 ครั้ง) · RX-01 44 · RX-03 46 · Aspirin 81 mg มีในคลังแต่ไม่ถูกจ่ายเลยใน 30 วัน</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section id="options">
+    <h2><span class="n">4</span>ทางเลือก dashboard</h2>
+    <div class="options">
+      <div class="opt pick">
+        <span class="tag ok pick-tag">แบบที่เลือก</span>
+        <h3>A · หน้าเดียวรวมทุกงาน</h3>
+        <div class="who">สำหรับ: ผู้จัดการร้าน / เภสัชกรผู้รับผิดชอบคลัง</div>
+        <div class="wire" aria-hidden="true">
+          <div class="row" style="grid-template-columns:repeat(4,1fr)"><div class="hl"></div><div class="hl"></div><div class="hl"></div><div class="hl"></div></div>
+          <div class="row" style="grid-template-columns:2fr 1fr"><div style="height:30px"></div><div style="height:30px"></div></div>
+          <div style="height:22px"></div><div style="height:22px"></div><div class="rd"></div>
+        </div>
+        <div class="pc"><b>ข้อดี</b>เห็นภาพรวมในหน้าเดียว · ตัวกรอง (หมวด / เภสัชกร / ช่วงเวลา) มีผลกับทุกส่วนพร้อมกัน · เมนูด้านซ้ายพาไปแต่ละส่วนได้ทันที
+        <b>ข้อเสีย</b>หน้ายาว ต้องเลื่อน · บนมือถือดูยากกว่าแบบอื่น</div>
+      </div>
+      <div class="opt">
+        <h3>B · แยกแท็บตามงาน</h3>
+        <div class="who">สำหรับ: ทีมที่แบ่งหน้าที่ชัด (คนดูคลัง / คนสั่งซื้อ / คนจ่ายยา)</div>
+        <div class="wire" aria-hidden="true">
+          <div class="row" style="grid-template-columns:repeat(4,1fr)"><div class="hl" style="height:8px"></div><div style="height:8px"></div><div style="height:8px"></div><div style="height:8px"></div></div>
+          <div class="row" style="grid-template-columns:1fr 1fr"><div style="height:30px"></div><div style="height:30px"></div></div>
+          <div style="height:40px"></div>
+        </div>
+        <div class="pc"><b>ข้อดี</b>แต่ละแท็บสั้นและตรงงาน · มีพื้นที่ใส่รายละเอียดเพิ่ม เช่น ใบสั่งซื้อ
+        <b>ข้อเสีย</b>มองไม่เห็นความเชื่อมโยง เช่น ยาที่ต้องสั่งซื้อแต่ใกล้หมดอายุ (Azithromycin) ต้องสลับแท็บ · ต้องดูแลสถานะตัวกรองข้ามแท็บ</div>
+      </div>
+      <div class="opt">
+        <h3>C · รายการที่ต้องทำวันนี้</h3>
+        <div class="who">สำหรับ: เภสัชกรหน้าร้าน ใช้บนแท็บเล็ต/มือถือ</div>
+        <div class="wire" aria-hidden="true">
+          <div class="rd" style="height:16px"></div>
+          <div style="height:16px"></div><div style="height:16px"></div><div style="height:16px"></div><div style="height:16px"></div>
+        </div>
+        <div class="pc"><b>ข้อดี</b>ลงมือได้ทันที เช่น "สั่ง Enalapril" หรือ "ย้าย Omeprazole ล็อต OM2411 มาไว้หน้า" · เหมาะกับจอเล็ก
+        <b>ข้อเสีย</b>ไม่เห็นแนวโน้มและภาพรวม · วิเคราะห์ย้อนหลังตามช่วงเวลาไม่ได้</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section id="pick">
+    <h2><span class="n">5</span>แบบที่เลือกและเหตุผล</h2>
+    <div class="card">
+      <p style="margin-top:0">เลือก <b>แบบ A</b> และนำจุดเด่นของแบบ C มาใส่ไว้บนสุด (แถบเตือนการจ่ายยาหมดอายุ และ KPI "ต้องสั่งซื้อ") เพราะ:</p>
+      <ol>
+        <li>ปัญหาสำคัญของข้อมูลนี้เกี่ยวข้องกันข้ามหัวข้อ เช่น Azithromycin ที่ "ต่ำกว่าจุดสั่งซื้อ" แต่ "ใกล้หมดอายุ" และ "แทบไม่มีคนใช้" ถ้าอยู่หน้าเดียวจะเห็นพร้อมกันทั้งหมด</li>
+        <li>โจทย์ต้องการตรวจตามช่วงเวลา ตัวกรองช่วงเวลาตัวเดียวจึงควรมีผลกับทุกส่วน</li>
+        <li>ใช้หน้าตาเดียวกับ dashboard01 (บัญชียา) และเชื่อมเมนูถึงกัน ผู้ใช้ไม่ต้องเรียนรู้หน้าตาใหม่</li>
+      </ol>
+      <h3>ส่วนประกอบของ dashboard02</h3>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>ส่วน</th><th>แสดงอะไร</th><th>ตอบคำถาม</th></tr></thead>
+          <tbody>
+            <tr><td>KPI 4 การ์ด</td><td>มูลค่าพร้อมจ่าย · ต้องสั่งซื้อ · ล็อตหมดอายุ/ใกล้หมด · จำนวนการจ่าย</td><td>วันนี้มีอะไรต้องรีบทำ</td></tr>
+            <tr><td>การจ่ายยา</td><td>กราฟรายวัน + เส้นค่าเฉลี่ย · ภาระงานเภสัชกร · ยายอดนิยม · ช่วงชั่วโมง</td><td>ใช้ยาเร็วแค่ไหน ควรจัดคนช่วงไหน</td></tr>
+            <tr><td>ต้องสั่งซื้อ</td><td>คงเหลือที่ใช้ได้ · จุดสั่งซื้อ · ใช้ต่อวัน · วันคงเหลือ · สถานะ</td><td>ควรสั่งอะไร ภายในกี่วัน</td></tr>
+            <tr><td>วันหมดอายุ</td><td>มูลค่าแยกตามช่วงเวลาก่อนหมดอายุ · รายการล็อตที่ต้องจัดการ</td><td>ยาอะไรเสี่ยงต้องทิ้ง</td></tr>
+            <tr><td>บันทึกการจ่าย</td><td>ตารางแบ่งหน้า · เลือกดูเฉพาะรายการที่มีปัญหา</td><td>ตรวจสอบย้อนหลังรายครั้ง</td></tr>
+            <tr><td>คุณภาพข้อมูล</td><td>ทุกปัญหาที่พบ และวิธีที่ dashboard จัดการ</td><td>ตัวเลขเชื่อถือได้แค่ไหน</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section id="check">
+    <h2><span class="n">6</span>ตรวจกับโจทย์</h2>
+    <div class="card scroll">
+      <table>
+        <thead><tr><th>โจทย์</th><th>ใน dashboard02</th></tr></thead>
+        <tbody>
+          <tr><td>เน้นการจัดการ stock</td><td><span class="tag ok">มี</span> มูลค่าคงคลัง คงเหลือรายล็อต สถานะ active / กักกัน / ตัดจำหน่าย</td></tr>
+          <tr><td>ตรวจสอบการหมดอายุ</td><td><span class="tag ok">มี</span> KPI กราฟช่วงเวลาก่อนหมดอายุ รายการล็อต และแถบเตือนการจ่ายยาหมดอายุ</td></tr>
+          <tr><td>การสั่งซื้อ</td><td><span class="tag ok">มี</span> ตารางจุดสั่งซื้อ + วันคงเหลือ</td></tr>
+          <tr><td>รายการจ่ายยา</td><td><span class="tag ok">มี</span> ตารางบันทึกการจ่าย แบ่งหน้า กรองเฉพาะรายการที่มีปัญหาได้</td></tr>
+          <tr><td>ตรวจได้ตามช่วงเวลา</td><td><span class="tag ok">มี</span> เลือกวันที่เริ่ม–สิ้นสุด หรือปุ่มลัด 7 วัน / 14 วัน / ทั้งหมด มีผลกับ KPI กราฟ ตาราง และอัตราใช้ต่อวัน</td></tr>
+          <tr><td>เชื่อมต่อเมนูไปยังหน้าอื่น</td><td><span class="tag ok">มี</span> dashboard01 ↔ dashboard02 ↔ หน้าวิเคราะห์นี้</td></tr>
+          <tr><td>โหลดไฟล์ JSON (ไม่รวมใน HTML)</td><td><span class="tag ok">มี</span> ใช้ <code>fetch()</code> อ่าน <code>stock.json</code>, <code>dispense-log.json</code>, <code>drugs_update.json</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+// โหมดมืด/สว่าง ใช้ค่าเดียวกับ dashboard
+const root = document.documentElement;
+let saved = null;
+try { saved = localStorage.getItem("drug-theme"); } catch (e) {}
+root.dataset.theme = saved || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+document.getElementById("themeBtn").onclick = () => {
+  root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+  try { localStorage.setItem("drug-theme", root.dataset.theme); } catch (e) {}
+};
+</script>
+</body>
+</html>
